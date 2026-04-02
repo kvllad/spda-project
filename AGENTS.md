@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-Application code lives in `app/` and follows a layered layout: `domain/` for core entities and enums, `application/` for services and ports, `infrastructure/` for SQLAlchemy, Alembic bootstrap, and repository adapters, and `presentation/` for FastAPI routes and middleware. Tests live in `tests/`, migrations in `alembic/`, and observability provisioning in `ops/` (`prometheus/`, `loki/`, `promtail/`, `grafana/`).
+Application code lives in `app/` and follows a layered layout: `domain/` for core entities and enums, `application/` for services and ports, `infrastructure/` for SQLAlchemy, Alembic bootstrap, and repository adapters, and `presentation/` for FastAPI routes and middleware. Tests live in `tests/`, migrations in `alembic/`, and observability plus edge routing provisioning in `ops/` (`nginx/`, `prometheus/`, `loki/`, `promtail/`, `grafana/`).
 Deployment automation lives in `.github/workflows/`, and remote rollout helpers live in `scripts/`.
 
 ## Build, Test, and Development Commands
@@ -12,7 +12,7 @@ Use Docker Compose as the primary runtime:
 - `docker compose down -v` stops the stack and removes volumes.
 - `bash -n scripts/deploy_remote.sh` validates the VPS deploy helper.
 
-API is exposed on `8000`, Grafana on `3000`, Prometheus on `9090`, and Loki on `3100`.
+Public API traffic is routed through `nginx` on port `80`; Grafana is exposed on `3000`, Prometheus on `9090`, and Loki on `3100`.
 
 ## Coding Style & Naming Conventions
 Target Python 3.11+. Use 4-space indentation, type hints on public functions, `snake_case` for modules/functions, and `PascalCase` for classes. Keep HTTP concerns in `presentation`, orchestration in `application`, and persistence in `infrastructure`. Prefer explicit service methods over fat route handlers.

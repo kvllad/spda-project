@@ -29,11 +29,12 @@ cd "${CURRENT_LINK}"
 docker compose -p "${COMPOSE_PROJECT_NAME}" up -d --build --remove-orphans
 
 i=0
-until curl -fsS http://127.0.0.1:8000/healthz >/dev/null 2>&1; do
+until curl -fsS http://127.0.0.1/healthz >/dev/null 2>&1; do
   i=$((i + 1))
   if [ "${i}" -ge 30 ]; then
     echo "Application health check failed after deployment." >&2
     docker compose -p "${COMPOSE_PROJECT_NAME}" ps >&2 || true
+    docker compose -p "${COMPOSE_PROJECT_NAME}" logs --tail=100 nginx >&2 || true
     docker compose -p "${COMPOSE_PROJECT_NAME}" logs --tail=100 api >&2 || true
     exit 1
   fi
