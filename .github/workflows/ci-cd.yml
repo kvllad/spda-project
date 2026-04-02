@@ -1,0 +1,104 @@
+name: CI/CD
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .[dev]
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Run tests
+        run: pytest -q
+
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare release archive
+        run: |
+          tar \
+            --exclude-vcs \
+            --exclude='.github' \
+            --exclude='.idea' \
+            --exclude='.pytest_cache' \
+            --exclude='.ruff_cache' \
+            --exclude='__pycache__' \
+            --exclude='.venv' \
+            -czf release.tar.gz .
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Prepare remote directories and shared env
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+          VPS_APP_ENV_FILE: ${{ secrets.VPS_APP_ENV_FILE }}
+        run: |
+          ssh "$VPS_USER@$VPS_HOST" "mkdir -p '$VPS_DEPLOY_PATH/releases' '$VPS_DEPLOY_PATH/shared'"
+          printf '%s' "$VPS_APP_ENV_FILE" | ssh "$VPS_USER@$VPS_HOST" "cat > '$VPS_DEPLOY_PATH/shared/.env'"
+
+      - name: Upload release bundle
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+        run: |
+          scp release.tar.gz scripts/deploy_remote.sh "$VPS_USER@$VPS_HOST:$VPS_DEPLOY_PATH/"
+
+      - name: Run remote deployment
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+          COMPOSE_PROJECT_NAME: ${{ secrets.COMPOSE_PROJECT_NAME }}
+        run: |
+          ssh "$VPS_USER@$VPS_HOST" "\
+            chmod +x '$VPS_DEPLOY_PATH/deploy_remote.sh' && \
+            DEPLOY_ROOT='$VPS_DEPLOY_PATH' \
+            RELEASE_SHA='${GITHUB_SHA}' \
+            ARCHIVE_NAME='release.tar.gz' \
+            COMPOSE_PROJECT_NAME='${COMPOSE_PROJECT_NAME:-emr-service}' \
+            KEEP_RELEASES='5' \
+            '$VPS_DEPLOY_PATH/deploy_remote.sh'"
