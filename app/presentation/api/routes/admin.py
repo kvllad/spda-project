@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.application.services.admin import AdminService, CreateDoctorCommand, CreatePatientCommand
-from app.domain.enums import Role
+from app.application.services.admin import (
+    AdminService,
+    CreateDoctorCommand,
+    CreatePatientCommand,
+)
 from app.domain.entities import AuthContext
+from app.domain.enums import Role
 from app.presentation.api.dependencies import get_admin_service, get_session, require_roles
 from app.presentation.api.schemas import (
     DoctorCreateRequest,
@@ -16,6 +22,10 @@ from app.presentation.api.schemas import (
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
+AdminAuth = Annotated[AuthContext, Depends(require_roles(Role.ADMIN))]
+DbSession = Annotated[AsyncSession, Depends(get_session)]
+AdminServiceDep = Annotated[AdminService, Depends(get_admin_service)]
+
 
 @router.post(
     "/doctors",
@@ -25,9 +35,9 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 async def create_doctor(
     payload: DoctorCreateRequest,
     response: Response,
-    _: AuthContext = Depends(require_roles(Role.ADMIN)),
-    session: AsyncSession = Depends(get_session),
-    admin_service: AdminService = Depends(get_admin_service),
+    _: AdminAuth,
+    session: DbSession,
+    admin_service: AdminServiceDep,
 ) -> DoctorResponse:
     doctor = await admin_service.create_doctor(
         CreateDoctorCommand(
@@ -52,9 +62,9 @@ async def create_doctor(
 async def create_patient(
     payload: PatientCreateRequest,
     response: Response,
-    _: AuthContext = Depends(require_roles(Role.ADMIN)),
-    session: AsyncSession = Depends(get_session),
-    admin_service: AdminService = Depends(get_admin_service),
+    _: AdminAuth,
+    session: DbSession,
+    admin_service: AdminServiceDep,
 ) -> PatientResponse:
     patient = await admin_service.create_patient(
         CreatePatientCommand(

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import AsyncIterator
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -19,8 +19,9 @@ def settings(tmp_path: Path) -> Settings:
         environment="test",
         debug=True,
         database_url=f"sqlite+aiosqlite:///{tmp_path / 'test.db'}",
-        jwt_secret_key="test-secret-key",
+        jwt_secret_key="0123456789abcdef0123456789abcdef",
         access_token_expire_minutes=60,
+        log_file_path=str(tmp_path / "app.log"),
         admin_login="admin",
         admin_password="admin12345",
         admin_full_name="Test Admin",

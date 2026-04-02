@@ -7,12 +7,12 @@ from fastapi.responses import JSONResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.core.config import Settings, get_settings
+from app.core.logging import configure_logging
 from app.domain.exceptions import AppError
 from app.infrastructure.bootstrap import bootstrap_admin
 from app.infrastructure.db.session import DatabaseManager
-from app.core.logging import configure_logging
-from app.presentation.middleware.observability import ObservabilityMiddleware
 from app.presentation.api.routes import admin, auth, doctor, patient
+from app.presentation.middleware.observability import ObservabilityMiddleware
 
 
 @asynccontextmanager

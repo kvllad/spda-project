@@ -30,7 +30,11 @@ class PatientService:
             return card
 
     async def update_my_profile(self, command: UpdatePatientProfileCommand) -> Patient:
-        with observe_business_operation("patient", "update_my_profile", patient_id=command.patient_id):
+        with observe_business_operation(
+            "patient",
+            "update_my_profile",
+            patient_id=command.patient_id,
+        ):
             if command.email and await self._emr_repository.patient_email_exists(
                 command.email,
                 exclude_patient_id=command.patient_id,

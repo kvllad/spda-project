@@ -7,9 +7,9 @@ Create Date: 2026-04-02 21:45:00
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "20260402_000001"
 down_revision = None
@@ -36,7 +36,12 @@ def upgrade() -> None:
     op.create_table(
         "doctors",
         sa.Column("id", sa.String(length=36), primary_key=True),
-        sa.Column("user_id", sa.String(length=36), sa.ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "user_id",
+            sa.String(length=36),
+            sa.ForeignKey("user_accounts.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("full_name", sa.String(length=255), nullable=False),
         sa.Column("specialization", sa.String(length=255), nullable=False),
         sa.Column("phone", sa.String(length=32), nullable=False),
@@ -49,7 +54,12 @@ def upgrade() -> None:
     op.create_table(
         "patients",
         sa.Column("id", sa.String(length=36), primary_key=True),
-        sa.Column("user_id", sa.String(length=36), sa.ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "user_id",
+            sa.String(length=36),
+            sa.ForeignKey("user_accounts.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("full_name", sa.String(length=255), nullable=False),
         sa.Column("date_of_birth", sa.Date(), nullable=False),
         sa.Column("gender", gender_enum, nullable=False),
@@ -61,13 +71,28 @@ def upgrade() -> None:
         sa.UniqueConstraint("user_id"),
     )
     op.create_index("ix_patients_email", "patients", ["email"], unique=True)
-    op.create_index("ix_patients_insurance_number", "patients", ["insurance_number"], unique=True)
+    op.create_index(
+        "ix_patients_insurance_number",
+        "patients",
+        ["insurance_number"],
+        unique=True,
+    )
 
     op.create_table(
         "doctor_patient_assignments",
         sa.Column("id", sa.String(length=36), primary_key=True),
-        sa.Column("doctor_id", sa.String(length=36), sa.ForeignKey("doctors.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("patient_id", sa.String(length=36), sa.ForeignKey("patients.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "doctor_id",
+            sa.String(length=36),
+            sa.ForeignKey("doctors.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "patient_id",
+            sa.String(length=36),
+            sa.ForeignKey("patients.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("assigned_at", sa.DateTime(timezone=True), nullable=False),
         sa.UniqueConstraint("patient_id", name="uq_assignment_patient"),
     )
@@ -87,8 +112,18 @@ def upgrade() -> None:
     op.create_table(
         "medical_records",
         sa.Column("id", sa.String(length=36), primary_key=True),
-        sa.Column("patient_id", sa.String(length=36), sa.ForeignKey("patients.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("doctor_id", sa.String(length=36), sa.ForeignKey("doctors.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "patient_id",
+            sa.String(length=36),
+            sa.ForeignKey("patients.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "doctor_id",
+            sa.String(length=36),
+            sa.ForeignKey("doctors.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("visit_date", sa.DateTime(timezone=True), nullable=False),
         sa.Column("complaints", sa.Text(), nullable=False),
         sa.Column("diagnosis", sa.Text(), nullable=False),
@@ -96,15 +131,40 @@ def upgrade() -> None:
         sa.Column("doctor_comment", sa.Text(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
     )
-    op.create_index("ix_medical_records_patient_id", "medical_records", ["patient_id"], unique=False)
-    op.create_index("ix_medical_records_doctor_id", "medical_records", ["doctor_id"], unique=False)
-    op.create_index("ix_medical_records_visit_date", "medical_records", ["visit_date"], unique=False)
+    op.create_index(
+        "ix_medical_records_patient_id",
+        "medical_records",
+        ["patient_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_medical_records_doctor_id",
+        "medical_records",
+        ["doctor_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_medical_records_visit_date",
+        "medical_records",
+        ["visit_date"],
+        unique=False,
+    )
 
     op.create_table(
         "prescriptions",
         sa.Column("id", sa.String(length=36), primary_key=True),
-        sa.Column("patient_id", sa.String(length=36), sa.ForeignKey("patients.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("doctor_id", sa.String(length=36), sa.ForeignKey("doctors.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "patient_id",
+            sa.String(length=36),
+            sa.ForeignKey("patients.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "doctor_id",
+            sa.String(length=36),
+            sa.ForeignKey("doctors.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("prescribed_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("title", sa.String(length=255), nullable=False),
         sa.Column("dosage", sa.String(length=255), nullable=False),
@@ -112,9 +172,24 @@ def upgrade() -> None:
         sa.Column("doctor_comment", sa.Text(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
     )
-    op.create_index("ix_prescriptions_patient_id", "prescriptions", ["patient_id"], unique=False)
-    op.create_index("ix_prescriptions_doctor_id", "prescriptions", ["doctor_id"], unique=False)
-    op.create_index("ix_prescriptions_prescribed_at", "prescriptions", ["prescribed_at"], unique=False)
+    op.create_index(
+        "ix_prescriptions_patient_id",
+        "prescriptions",
+        ["patient_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_prescriptions_doctor_id",
+        "prescriptions",
+        ["doctor_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_prescriptions_prescribed_at",
+        "prescriptions",
+        ["prescribed_at"],
+        unique=False,
+    )
 
 
 def downgrade() -> None:
@@ -128,8 +203,14 @@ def downgrade() -> None:
     op.drop_index("ix_medical_records_patient_id", table_name="medical_records")
     op.drop_table("medical_records")
 
-    op.drop_index("ix_doctor_patient_assignments_patient_id", table_name="doctor_patient_assignments")
-    op.drop_index("ix_doctor_patient_assignments_doctor_id", table_name="doctor_patient_assignments")
+    op.drop_index(
+        "ix_doctor_patient_assignments_patient_id",
+        table_name="doctor_patient_assignments",
+    )
+    op.drop_index(
+        "ix_doctor_patient_assignments_doctor_id",
+        table_name="doctor_patient_assignments",
+    )
     op.drop_table("doctor_patient_assignments")
 
     op.drop_index("ix_patients_insurance_number", table_name="patients")

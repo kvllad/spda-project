@@ -64,7 +64,13 @@ class SqlAlchemyAuthRepository:
         )
         return result.scalar_one_or_none() is not None
 
-    async def create_user(self, *, username: str, password_hash: str, role) -> UserAccount:
+    async def create_user(
+        self,
+        *,
+        username: str,
+        password_hash: str,
+        role,
+    ) -> UserAccount:
         model = UserAccountModel(
             username=username,
             password_hash=password_hash,
@@ -81,7 +87,9 @@ class SqlAlchemyEmrRepository:
         self._session = session
 
     async def doctor_email_exists(self, email: str) -> bool:
-        result = await self._session.execute(select(DoctorModel.id).where(DoctorModel.email == email))
+        result = await self._session.execute(
+            select(DoctorModel.id).where(DoctorModel.email == email),
+        )
         return result.scalar_one_or_none() is not None
 
     async def patient_email_exists(self, email: str, exclude_patient_id: str | None = None) -> bool:
@@ -218,7 +226,11 @@ class SqlAlchemyEmrRepository:
             raise ValueError("Patient is already assigned to a doctor.") from error
         return _map_assignment(model)
 
-    async def get_doctor_patient_card(self, doctor_id: str, patient_id: str) -> PatientCard | None:
+    async def get_doctor_patient_card(
+        self,
+        doctor_id: str,
+        patient_id: str,
+    ) -> PatientCard | None:
         result = await self._session.execute(
             select(DoctorPatientAssignmentModel).where(
                 DoctorPatientAssignmentModel.doctor_id == doctor_id,

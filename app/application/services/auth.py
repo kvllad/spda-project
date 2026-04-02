@@ -4,9 +4,9 @@ from dataclasses import dataclass
 
 from app.application.ports.repositories import AuthRepository
 from app.core.config import Settings
+from app.core.logging import get_logger
 from app.core.metrics import observe_business_operation
 from app.core.security import create_access_token, verify_password
-from app.core.logging import get_logger
 from app.domain.entities import UserAccount
 from app.domain.enums import Role
 from app.domain.exceptions import AuthenticationError

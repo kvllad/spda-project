@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +26,10 @@ from app.presentation.api.schemas import (
 
 router = APIRouter(prefix="/doctors/me", tags=["doctor"])
 
+DoctorAuth = Annotated[AuthContext, Depends(require_roles(Role.DOCTOR))]
+DbSession = Annotated[AsyncSession, Depends(get_session)]
+DoctorServiceDep = Annotated[DoctorService, Depends(get_doctor_service)]
+
 
 def _doctor_id(auth_context: AuthContext) -> str:
     if auth_context.profile_id is None:
@@ -33,8 +39,8 @@ def _doctor_id(auth_context: AuthContext) -> str:
 
 @router.get("/patients", response_model=list[PatientSummaryResponse])
 async def list_patients(
-    auth_context: AuthContext = Depends(require_roles(Role.DOCTOR)),
-    doctor_service: DoctorService = Depends(get_doctor_service),
+    auth_context: DoctorAuth,
+    doctor_service: DoctorServiceDep,
 ) -> list[PatientSummaryResponse]:
     patients = await doctor_service.list_patients(_doctor_id(auth_context))
     return [PatientSummaryResponse.model_validate(item) for item in patients]
@@ -42,8 +48,8 @@ async def list_patients(
 
 @router.get("/patients/available", response_model=list[PatientSummaryResponse])
 async def list_available_patients(
-    _: AuthContext = Depends(require_roles(Role.DOCTOR)),
-    doctor_service: DoctorService = Depends(get_doctor_service),
+    _: DoctorAuth,
+    doctor_service: DoctorServiceDep,
 ) -> list[PatientSummaryResponse]:
     patients = await doctor_service.list_available_patients()
     return [PatientSummaryResponse.model_validate(item) for item in patients]
@@ -57,9 +63,9 @@ async def list_available_patients(
 async def assign_patient(
     patient_id: str,
     response: Response,
-    auth_context: AuthContext = Depends(require_roles(Role.DOCTOR)),
-    session: AsyncSession = Depends(get_session),
-    doctor_service: DoctorService = Depends(get_doctor_service),
+    auth_context: DoctorAuth,
+    session: DbSession,
+    doctor_service: DoctorServiceDep,
 ) -> AssignmentResponse:
     assignment = await doctor_service.assign_patient(_doctor_id(auth_context), patient_id)
     await session.commit()
@@ -70,8 +76,8 @@ async def assign_patient(
 @router.get("/patients/{patient_id}", response_model=PatientCardResponse)
 async def get_patient_card(
     patient_id: str,
-    auth_context: AuthContext = Depends(require_roles(Role.DOCTOR)),
-    doctor_service: DoctorService = Depends(get_doctor_service),
+    auth_context: DoctorAuth,
+    doctor_service: DoctorServiceDep,
 ) -> PatientCardResponse:
     card = await doctor_service.get_patient_card(_doctor_id(auth_context), patient_id)
     return PatientCardResponse.model_validate(card)
@@ -86,9 +92,9 @@ async def add_medical_record(
     patient_id: str,
     payload: MedicalRecordCreateRequest,
     response: Response,
-    auth_context: AuthContext = Depends(require_roles(Role.DOCTOR)),
-    session: AsyncSession = Depends(get_session),
-    doctor_service: DoctorService = Depends(get_doctor_service),
+    auth_context: DoctorAuth,
+    session: DbSession,
+    doctor_service: DoctorServiceDep,
 ) -> MedicalRecordResponse:
     record = await doctor_service.add_medical_record(
         CreateMedicalRecordCommand(
@@ -115,9 +121,9 @@ async def add_prescription(
     patient_id: str,
     payload: PrescriptionCreateRequest,
     response: Response,
-    auth_context: AuthContext = Depends(require_roles(Role.DOCTOR)),
-    session: AsyncSession = Depends(get_session),
-    doctor_service: DoctorService = Depends(get_doctor_service),
+    auth_context: DoctorAuth,
+    session: DbSession,
+    doctor_service: DoctorServiceDep,
 ) -> PrescriptionResponse:
     prescription = await doctor_service.add_prescription(
         CreatePrescriptionCommand(

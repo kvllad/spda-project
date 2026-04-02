@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +14,10 @@ from app.presentation.api.schemas import PatientCardResponse, PatientResponse, P
 
 router = APIRouter(prefix="/patients/me", tags=["patient"])
 
+PatientAuth = Annotated[AuthContext, Depends(require_roles(Role.PATIENT))]
+DbSession = Annotated[AsyncSession, Depends(get_session)]
+PatientServiceDep = Annotated[PatientService, Depends(get_patient_service)]
+
 
 def _patient_id(auth_context: AuthContext) -> str:
     if auth_context.profile_id is None:
@@ -21,8 +27,8 @@ def _patient_id(auth_context: AuthContext) -> str:
 
 @router.get("", response_model=PatientCardResponse)
 async def get_my_card(
-    auth_context: AuthContext = Depends(require_roles(Role.PATIENT)),
-    patient_service: PatientService = Depends(get_patient_service),
+    auth_context: PatientAuth,
+    patient_service: PatientServiceDep,
 ) -> PatientCardResponse:
     card = await patient_service.get_my_card(_patient_id(auth_context))
     return PatientCardResponse.model_validate(card)
@@ -31,9 +37,9 @@ async def get_my_card(
 @router.patch("", response_model=PatientResponse)
 async def update_my_profile(
     payload: PatientUpdateRequest,
-    auth_context: AuthContext = Depends(require_roles(Role.PATIENT)),
-    session: AsyncSession = Depends(get_session),
-    patient_service: PatientService = Depends(get_patient_service),
+    auth_context: PatientAuth,
+    session: DbSession,
+    patient_service: PatientServiceDep,
 ) -> PatientResponse:
     patient = await patient_service.update_my_profile(
         UpdatePatientProfileCommand(

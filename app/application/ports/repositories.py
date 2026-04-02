@@ -25,13 +25,23 @@ class AuthRepository(Protocol):
 
     async def username_exists(self, username: str) -> bool: ...
 
-    async def create_user(self, *, username: str, password_hash: str, role: Role) -> UserAccount: ...
+    async def create_user(
+        self,
+        *,
+        username: str,
+        password_hash: str,
+        role: Role,
+    ) -> UserAccount: ...
 
 
 class EmrRepository(Protocol):
     async def doctor_email_exists(self, email: str) -> bool: ...
 
-    async def patient_email_exists(self, email: str, exclude_patient_id: str | None = None) -> bool: ...
+    async def patient_email_exists(
+        self,
+        email: str,
+        exclude_patient_id: str | None = None,
+    ) -> bool: ...
 
     async def insurance_number_exists(self, insurance_number: str) -> bool: ...
 
@@ -64,7 +74,11 @@ class EmrRepository(Protocol):
 
     async def assign_patient(self, doctor_id: str, patient_id: str) -> DoctorPatientAssignment: ...
 
-    async def get_doctor_patient_card(self, doctor_id: str, patient_id: str) -> PatientCard | None: ...
+    async def get_doctor_patient_card(
+        self,
+        doctor_id: str,
+        patient_id: str,
+    ) -> PatientCard | None: ...
 
     async def get_patient_card(self, patient_id: str) -> PatientCard | None: ...
 

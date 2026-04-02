@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Callable
+from typing import Annotated
 
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -15,7 +16,10 @@ from app.core.security import decode_access_token
 from app.domain.entities import AuthContext
 from app.domain.enums import Role
 from app.domain.exceptions import AuthenticationError, AuthorizationError
-from app.infrastructure.repositories.sqlalchemy import SqlAlchemyAuthRepository, SqlAlchemyEmrRepository
+from app.infrastructure.repositories.sqlalchemy import (
+    SqlAlchemyAuthRepository,
+    SqlAlchemyEmrRepository,
+)
 
 security_scheme = HTTPBearer(auto_error=False)
 
@@ -30,34 +34,42 @@ async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
         yield session
 
 
+SessionDep = Annotated[AsyncSession, Depends(get_session)]
+SettingsDep = Annotated[Settings, Depends(get_settings)]
+AuthCredentialsDep = Annotated[
+    HTTPAuthorizationCredentials | None,
+    Depends(security_scheme),
+]
+
+
 def get_auth_service(
-    session: AsyncSession = Depends(get_session),
-    settings: Settings = Depends(get_settings),
+    session: SessionDep,
+    settings: SettingsDep,
 ) -> AuthService:
     return AuthService(SqlAlchemyAuthRepository(session), settings)
 
 
 def get_admin_service(
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> AdminService:
     return AdminService(SqlAlchemyAuthRepository(session), SqlAlchemyEmrRepository(session))
 
 
 def get_doctor_service(
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> DoctorService:
     return DoctorService(SqlAlchemyEmrRepository(session))
 
 
 def get_patient_service(
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> PatientService:
     return PatientService(SqlAlchemyEmrRepository(session))
 
 
 async def get_current_auth_context(
-    credentials: HTTPAuthorizationCredentials | None = Depends(security_scheme),
-    settings: Settings = Depends(get_settings),
+    credentials: AuthCredentialsDep,
+    settings: SettingsDep,
 ) -> AuthContext:
     if credentials is None:
         raise AuthenticationError("Authentication credentials were not provided.")
@@ -75,7 +87,7 @@ async def get_current_auth_context(
 
 def require_roles(*roles: Role) -> Callable[[AuthContext], AuthContext]:
     async def dependency(
-        auth_context: AuthContext = Depends(get_current_auth_context),
+        auth_context: Annotated[AuthContext, Depends(get_current_auth_context)],
     ) -> AuthContext:
         if auth_context.role not in roles:
             raise AuthorizationError("You do not have access to this resource.")

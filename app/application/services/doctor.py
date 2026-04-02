@@ -6,7 +6,13 @@ from datetime import datetime
 from app.application.ports.repositories import EmrRepository
 from app.core.logging import get_logger
 from app.core.metrics import observe_business_operation
-from app.domain.entities import DoctorPatientAssignment, MedicalRecord, PatientCard, PatientSummary, Prescription
+from app.domain.entities import (
+    DoctorPatientAssignment,
+    MedicalRecord,
+    PatientCard,
+    PatientSummary,
+    Prescription,
+)
 from app.domain.exceptions import ConflictError, NotFoundError
 
 

@@ -14,11 +14,14 @@ class Settings(BaseSettings):
         default="postgresql+asyncpg://postgres:postgres@db:5432/emr",
     )
 
-    jwt_secret_key: str = Field(default="change-me", min_length=16)
+    jwt_secret_key: str = Field(
+        default="0123456789abcdef0123456789abcdef",
+        min_length=16,
+    )
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     log_level: str = "INFO"
-    log_file_path: str = "/var/log/emr/app.log"
+    log_file_path: str = "logs/app.log"
 
     admin_login: str = "admin"
     admin_password: str = Field(default="AdminPass123", min_length=8)
