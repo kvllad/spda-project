@@ -44,20 +44,19 @@ jobs:
     environment: production
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Prepare release archive
+      - name: Validate deploy secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
         run: |
-          tar \
-            --exclude-vcs \
-            --exclude='.github' \
-            --exclude='.idea' \
-            --exclude='.pytest_cache' \
-            --exclude='.ruff_cache' \
-            --exclude='__pycache__' \
-            --exclude='.venv' \
-            -czf "$RUNNER_TEMP/release.tar.gz" .
+          for secret_name in VPS_HOST VPS_USER VPS_SSH_KEY VPS_DEPLOY_PATH; do
+            if [ -z "${!secret_name}" ]; then
+              echo "Missing required secret: ${secret_name}" >&2
+              exit 1
+            fi
+          done
 
       - name: Configure SSH
         env:
@@ -69,36 +68,58 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
 
-      - name: Prepare remote directories and shared env
+      - name: Deploy application
         env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ github.token }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
-          VPS_APP_ENV_FILE: ${{ secrets.VPS_APP_ENV_FILE }}
         run: |
-          ssh "$VPS_USER@$VPS_HOST" "mkdir -p '$VPS_DEPLOY_PATH/releases' '$VPS_DEPLOY_PATH/shared'"
-          printf '%s' "$VPS_APP_ENV_FILE" | ssh "$VPS_USER@$VPS_HOST" "cat > '$VPS_DEPLOY_PATH/shared/.env'"
+          ssh "$VPS_USER@$VPS_HOST" \
+            "GITHUB_REPOSITORY='$GITHUB_REPOSITORY' \
+            GITHUB_TOKEN='$GITHUB_TOKEN' \
+            VPS_DEPLOY_PATH='$VPS_DEPLOY_PATH' \
+            bash -se" <<'EOF'
+          set -euo pipefail
 
-      - name: Upload release bundle
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-          VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
-        run: |
-          scp "$RUNNER_TEMP/release.tar.gz" scripts/deploy_remote.sh "$VPS_USER@$VPS_HOST:$VPS_DEPLOY_PATH/"
+          REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
 
-      - name: Run remote deployment
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-          VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
-          COMPOSE_PROJECT_NAME: ${{ secrets.COMPOSE_PROJECT_NAME }}
-        run: |
-          ssh "$VPS_USER@$VPS_HOST" "\
-            chmod +x '$VPS_DEPLOY_PATH/deploy_remote.sh' && \
-            DEPLOY_ROOT='$VPS_DEPLOY_PATH' \
-            RELEASE_SHA='${GITHUB_SHA}' \
-            ARCHIVE_NAME='release.tar.gz' \
-            COMPOSE_PROJECT_NAME='${COMPOSE_PROJECT_NAME:-emr-service}' \
-            KEEP_RELEASES='5' \
-            '$VPS_DEPLOY_PATH/deploy_remote.sh'"
+          mkdir -p "${VPS_DEPLOY_PATH}"
+
+          if [ ! -d "${VPS_DEPLOY_PATH}/.git" ]; then
+            git -C "${VPS_DEPLOY_PATH}" init
+          fi
+
+          if [ ! -f "${VPS_DEPLOY_PATH}/.env" ]; then
+            echo "Missing ${VPS_DEPLOY_PATH}/.env on VPS" >&2
+            exit 1
+          fi
+
+          git -C "${VPS_DEPLOY_PATH}" fetch --depth 1 "${REPO_URL}" main
+          git -C "${VPS_DEPLOY_PATH}" reset --hard FETCH_HEAD
+          git -C "${VPS_DEPLOY_PATH}" clean -fd
+
+          docker compose -f "${VPS_DEPLOY_PATH}/docker-compose.yml" \
+            --project-directory "${VPS_DEPLOY_PATH}" \
+            up -d --build --remove-orphans
+
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1/healthz >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Application health check failed after deployment." >&2
+          docker compose -f "${VPS_DEPLOY_PATH}/docker-compose.yml" \
+            --project-directory "${VPS_DEPLOY_PATH}" \
+            ps >&2 || true
+          docker compose -f "${VPS_DEPLOY_PATH}/docker-compose.yml" \
+            --project-directory "${VPS_DEPLOY_PATH}" \
+            logs --tail=100 nginx >&2 || true
+          docker compose -f "${VPS_DEPLOY_PATH}/docker-compose.yml" \
+            --project-directory "${VPS_DEPLOY_PATH}" \
+            logs --tail=100 api >&2 || true
+          exit 1
+          EOF
