@@ -50,8 +50,9 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+          VPS_APP_ENV_FILE: ${{ secrets.VPS_APP_ENV_FILE }}
         run: |
-          for secret_name in VPS_HOST VPS_USER VPS_SSH_KEY VPS_DEPLOY_PATH; do
+          for secret_name in VPS_HOST VPS_USER VPS_SSH_KEY VPS_DEPLOY_PATH VPS_APP_ENV_FILE; do
             if [ -z "${!secret_name}" ]; then
               echo "Missing required secret: ${secret_name}" >&2
               exit 1
@@ -67,6 +68,16 @@ jobs:
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Sync application env
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+          VPS_APP_ENV_FILE: ${{ secrets.VPS_APP_ENV_FILE }}
+        run: |
+          ssh "$VPS_USER@$VPS_HOST" "mkdir -p '$VPS_DEPLOY_PATH'"
+          printf '%s' "$VPS_APP_ENV_FILE" | ssh "$VPS_USER@$VPS_HOST" "cat > '$VPS_DEPLOY_PATH/.env'"
 
       - name: Deploy application
         env:
@@ -89,11 +100,6 @@ jobs:
 
           if [ ! -d "${VPS_DEPLOY_PATH}/.git" ]; then
             git -C "${VPS_DEPLOY_PATH}" init
-          fi
-
-          if [ ! -f "${VPS_DEPLOY_PATH}/.env" ]; then
-            echo "Missing ${VPS_DEPLOY_PATH}/.env on VPS" >&2
-            exit 1
           fi
 
           git -C "${VPS_DEPLOY_PATH}" fetch --depth 1 "${REPO_URL}" main
