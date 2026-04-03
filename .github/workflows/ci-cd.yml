@@ -77,7 +77,14 @@ jobs:
           VPS_APP_ENV_FILE: ${{ secrets.VPS_APP_ENV_FILE }}
         run: |
           ssh "$VPS_USER@$VPS_HOST" "mkdir -p '$VPS_DEPLOY_PATH'"
-          printf '%s' "$VPS_APP_ENV_FILE" | ssh "$VPS_USER@$VPS_HOST" "cat > '$VPS_DEPLOY_PATH/.env'"
+          if printf '%s' "$VPS_APP_ENV_FILE" | grep -q '='; then
+            printf '%s' "$VPS_APP_ENV_FILE" | ssh "$VPS_USER@$VPS_HOST" "cat > '$VPS_DEPLOY_PATH/.env'"
+          elif [ "$VPS_APP_ENV_FILE" = "$VPS_DEPLOY_PATH/.env" ]; then
+            ssh "$VPS_USER@$VPS_HOST" "test -f '$VPS_DEPLOY_PATH/.env'"
+          else
+            ssh "$VPS_USER@$VPS_HOST" \
+              "test -f '$VPS_APP_ENV_FILE' && cat '$VPS_APP_ENV_FILE' > '$VPS_DEPLOY_PATH/.env'"
+          fi
 
       - name: Deploy application
         env:

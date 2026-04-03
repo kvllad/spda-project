@@ -10,7 +10,7 @@ Use Docker Compose as the primary runtime:
 - `docker compose logs -f api` tails application logs.
 - `docker compose exec -T api python -m compileall -q app tests alembic` performs a quick syntax check inside the service container.
 - `docker compose down -v` stops the stack and removes volumes.
-- GitHub Actions deploys by SSH-ing into the VPS, writing `.env` from the `VPS_APP_ENV_FILE` secret, syncing `main` into the checkout directory, and running `docker compose up -d --build --remove-orphans`.
+- GitHub Actions deploys by SSH-ing into the VPS, syncing `.env` from `VPS_APP_ENV_FILE` (either raw file contents or a VPS path), syncing `main` into the checkout directory, and running `docker compose up -d --build --remove-orphans`.
 
 Public API traffic is routed through `nginx` on port `80`; Grafana is exposed on `3000`, Prometheus on `9090`, and Loki on `3100`.
 
@@ -24,4 +24,4 @@ Write tests first. Integration coverage lives in `tests/integration/` and should
 Use short imperative commits such as `Add patient assignment service` or `Wire Grafana provisioning`. PRs should summarize behavior changes, list validation commands, and mention schema, Docker, or observability changes explicitly. Include screenshots when dashboard or API contract changes affect operators.
 
 ## Security & Configuration Tips
-Never store secrets outside controlled defaults. Override `JWT_SECRET_KEY`, admin credentials, and database settings through environment variables. CI/CD writes `.env` on the VPS from the `VPS_APP_ENV_FILE` environment secret, and `/var/log/emr/app.log` should be treated as operational data rather than source-controlled output. GitHub Actions deploy requires `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `VPS_DEPLOY_PATH`, and `VPS_APP_ENV_FILE`; missing secrets fail the job before SSH setup.
+Never store secrets outside controlled defaults. Override `JWT_SECRET_KEY`, admin credentials, and database settings through environment variables. CI/CD syncs `.env` on the VPS from the `VPS_APP_ENV_FILE` environment secret, which may hold either raw env contents or a VPS file path, and `/var/log/emr/app.log` should be treated as operational data rather than source-controlled output. GitHub Actions deploy requires `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `VPS_DEPLOY_PATH`, and `VPS_APP_ENV_FILE`; missing secrets fail the job before SSH setup.
