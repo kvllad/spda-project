@@ -12,19 +12,19 @@ docker compose up -d --build
 
 Main endpoints:
 
-- API docs: `http://213.171.29.112/docs`
-- ReDoc: `http://213.171.29.112/redoc`
-- OpenAPI: `http://213.171.29.112/openapi.json`
-- Health: `http://213.171.29.112/healthz`
+- API docs: `https://my-emr.duckdns.org/docs`
+- ReDoc: `https://my-emr.duckdns.org/redoc`
+- OpenAPI: `https://my-emr.duckdns.org/openapi.json`
+- Health: `https://my-emr.duckdns.org/healthz`
 
-For local development replace `213.171.29.112` with `127.0.0.1`.
+For local development replace `my-emr.duckdns.org` with `127.0.0.1`.
 
 ## Authentication
 
 Get an access token:
 
 ```bash
-curl -X POST http://213.171.29.112/api/v1/auth/login \
+curl -X POST https://my-emr.duckdns.org/api/v1/auth/login \
   -H 'Content-Type: application/json' \
   -d '{
     "username": "admin",
@@ -54,7 +54,7 @@ Use the token in all protected requests:
 Create a doctor:
 
 ```bash
-curl -X POST http://213.171.29.112/api/v1/admin/doctors \
+curl -X POST https://my-emr.duckdns.org/api/v1/admin/doctors \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer <ADMIN_TOKEN>" \
   -d '{
@@ -70,7 +70,7 @@ curl -X POST http://213.171.29.112/api/v1/admin/doctors \
 Create a patient:
 
 ```bash
-curl -X POST http://213.171.29.112/api/v1/admin/patients \
+curl -X POST https://my-emr.duckdns.org/api/v1/admin/patients \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer <ADMIN_TOKEN>" \
   -d '{
@@ -91,7 +91,7 @@ curl -X POST http://213.171.29.112/api/v1/admin/patients \
 Doctor login:
 
 ```bash
-curl -X POST http://213.171.29.112/api/v1/auth/login \
+curl -X POST https://my-emr.duckdns.org/api/v1/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"username":"doctor_alice","password":"DoctorPass123"}'
 ```
@@ -99,7 +99,7 @@ curl -X POST http://213.171.29.112/api/v1/auth/login \
 Patient login:
 
 ```bash
-curl -X POST http://213.171.29.112/api/v1/auth/login \
+curl -X POST https://my-emr.duckdns.org/api/v1/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"username":"patient_ivan","password":"PatientPass123"}'
 ```
@@ -111,28 +111,28 @@ The `profile_id` in the login response is the doctor or patient profile ID used 
 List assigned patients:
 
 ```bash
-curl http://213.171.29.112/api/v1/doctors/me/patients \
+curl https://my-emr.duckdns.org/api/v1/doctors/me/patients \
   -H "Authorization: Bearer <DOCTOR_TOKEN>"
 ```
 
 List unassigned patients:
 
 ```bash
-curl http://213.171.29.112/api/v1/doctors/me/patients/available \
+curl https://my-emr.duckdns.org/api/v1/doctors/me/patients/available \
   -H "Authorization: Bearer <DOCTOR_TOKEN>"
 ```
 
 Assign a patient:
 
 ```bash
-curl -X POST http://213.171.29.112/api/v1/doctors/me/patients/<PATIENT_ID>/assign \
+curl -X POST https://my-emr.duckdns.org/api/v1/doctors/me/patients/<PATIENT_ID>/assign \
   -H "Authorization: Bearer <DOCTOR_TOKEN>"
 ```
 
 Add a medical record:
 
 ```bash
-curl -X POST http://213.171.29.112/api/v1/doctors/me/patients/<PATIENT_ID>/medical-records \
+curl -X POST https://my-emr.duckdns.org/api/v1/doctors/me/patients/<PATIENT_ID>/medical-records \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer <DOCTOR_TOKEN>" \
   -d '{
@@ -147,7 +147,7 @@ curl -X POST http://213.171.29.112/api/v1/doctors/me/patients/<PATIENT_ID>/medic
 Add a prescription:
 
 ```bash
-curl -X POST http://213.171.29.112/api/v1/doctors/me/patients/<PATIENT_ID>/prescriptions \
+curl -X POST https://my-emr.duckdns.org/api/v1/doctors/me/patients/<PATIENT_ID>/prescriptions \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer <DOCTOR_TOKEN>" \
   -d '{
@@ -164,14 +164,14 @@ curl -X POST http://213.171.29.112/api/v1/doctors/me/patients/<PATIENT_ID>/presc
 View own medical card:
 
 ```bash
-curl http://213.171.29.112/api/v1/patients/me \
+curl https://my-emr.duckdns.org/api/v1/patients/me \
   -H "Authorization: Bearer <PATIENT_TOKEN>"
 ```
 
 Update contact information:
 
 ```bash
-curl -X PATCH http://213.171.29.112/api/v1/patients/me \
+curl -X PATCH https://my-emr.duckdns.org/api/v1/patients/me \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer <PATIENT_TOKEN>" \
   -d '{
@@ -183,9 +183,13 @@ curl -X PATCH http://213.171.29.112/api/v1/patients/me \
 
 ## Observability
 
-- Grafana: `http://213.171.29.112:3000`
+- Grafana: `https://my-emr.duckdns.org/grafana/`
 - Prometheus: `http://213.171.29.112:9090`
 - Loki: `http://213.171.29.112:3100`
+
+## TLS and DuckDNS
+
+Production traffic is served through `nginx` with Let's Encrypt certificates for `my-emr.duckdns.org`. Renewal is handled on the VPS by `scripts/renew_tls.sh`, which uses the DuckDNS TXT API hooks in `ops/certbot/` for DNS-01 validation. Runtime certificate files live outside git in `ops/letsencrypt/`.
 
 ## Validation
 

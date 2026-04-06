@@ -8,3 +8,6 @@ __pycache__/
 .coverage
 htmlcov/
 .idea/
+logs/
+ops/letsencrypt/
+ops/acme-webroot/
