@@ -1,14 +1,21 @@
 #!/bin/sh
 set -eu
 
-if [ -z "${DUCKDNS_TOKEN:-}" ] || [ -z "${DUCKDNS_DOMAIN:-}" ] || [ -z "${CERTBOT_VALIDATION:-}" ]; then
+if [ -z "${DUCKDNS_TOKEN:-}" ] || [ -z "${CERTBOT_DOMAIN:-}" ] || [ -z "${CERTBOT_VALIDATION:-}" ]; then
   echo "Missing required DuckDNS or Certbot environment variables" >&2
   exit 1
 fi
 
-response="$(curl -fsS "https://www.duckdns.org/update?domains=${DUCKDNS_DOMAIN}&token=${DUCKDNS_TOKEN}&txt=${CERTBOT_VALIDATION}&verbose=true")"
+case "$CERTBOT_DOMAIN" in
+  *.duckdns.org) duckdns_domain="${CERTBOT_DOMAIN%.duckdns.org}" ;;
+  *)
+    echo "Unsupported domain for DuckDNS hook: $CERTBOT_DOMAIN" >&2
+    exit 1
+    ;;
+esac
+
+response="$(curl -fsS "https://www.duckdns.org/update?domains=${duckdns_domain}&token=${DUCKDNS_TOKEN}&txt=${CERTBOT_VALIDATION}&verbose=true")"
 printf '%s\n' "$response"
 printf '%s' "$response" | grep -q '^OK'
 
-# Give resolvers a moment to pick up the TXT update.
 sleep 30
