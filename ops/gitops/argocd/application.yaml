@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: emr-prod
+  namespace: argocd
+spec:
+  project: emr
+  source:
+    repoURL: git://host.minikube.internal/spda-project.git
+    targetRevision: main
+    path: ops/k8s/overlays/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: emr
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -7,13 +7,18 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 env:
   PYTHON_VERSION: "3.11"
+  E2E_BASE_URL: https://my-emr.duckdns.org
 
 jobs:
-  test:
-    name: Test
+  ci:
+    name: Lint and Test
     runs-on: ubuntu-latest
+    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
 
     steps:
       - name: Checkout repository
@@ -36,11 +41,55 @@ jobs:
       - name: Run tests
         run: pytest -q
 
-  deploy:
-    name: Deploy to VPS
+  update-gitops:
+    name: Update GitOps Overlay
     runs-on: ubuntu-latest
-    needs: test
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update production image tag
+        env:
+          IMAGE_TAG: sha-${{ github.sha }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os
+
+          path = Path("ops/k8s/overlays/prod/kustomization.yaml")
+          old = path.read_text(encoding="utf-8")
+          new_lines = []
+          for line in old.splitlines():
+              if line.strip().startswith("newTag:"):
+                  new_lines.append(f"    newTag: {os.environ['IMAGE_TAG']}")
+              else:
+                  new_lines.append(line)
+          path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+          PY
+
+      - name: Commit updated overlay
+        env:
+          IMAGE_TAG: sha-${{ github.sha }}
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ops/k8s/overlays/prod/kustomization.yaml
+          git commit -m "Update production image to ${IMAGE_TAG} [skip ci]"
+          git push
+
+  deploy:
+    name: Bootstrap Cluster and Sync Argo CD
+    runs-on: ubuntu-latest
+    needs: update-gitops
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
     environment: PROD
 
     steps:
@@ -52,7 +101,13 @@ jobs:
           VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
           VPS_APP_ENV_FILE: ${{ secrets.VPS_APP_ENV_FILE }}
         run: |
-          for secret_name in VPS_HOST VPS_USER VPS_SSH_KEY VPS_DEPLOY_PATH VPS_APP_ENV_FILE; do
+          for secret_name in \
+            VPS_HOST \
+            VPS_USER \
+            VPS_SSH_KEY \
+            VPS_DEPLOY_PATH \
+            VPS_APP_ENV_FILE
+          do
             if [ -z "${!secret_name}" ]; then
               echo "Missing required secret: ${secret_name}" >&2
               exit 1
@@ -68,6 +123,9 @@ jobs:
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Sync application env
         env:
@@ -86,25 +144,26 @@ jobs:
               "test -f '$VPS_APP_ENV_FILE' && cat '$VPS_APP_ENV_FILE' > '$VPS_DEPLOY_PATH/.env'"
           fi
 
-      - name: Deploy application
+      - name: Sync repository on VPS and bootstrap cluster
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_TOKEN: ${{ github.token }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+          IMAGE_TAG: sha-${{ github.sha }}
         run: |
           ssh "$VPS_USER@$VPS_HOST" \
             "GITHUB_REPOSITORY='$GITHUB_REPOSITORY' \
             GITHUB_TOKEN='$GITHUB_TOKEN' \
             VPS_DEPLOY_PATH='$VPS_DEPLOY_PATH' \
+            IMAGE_TAG='$IMAGE_TAG' \
             bash -se" <<'EOF'
           set -euo pipefail
 
           REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
 
           mkdir -p "${VPS_DEPLOY_PATH}"
-
           if [ ! -d "${VPS_DEPLOY_PATH}/.git" ]; then
             git -C "${VPS_DEPLOY_PATH}" init
           fi
@@ -113,26 +172,96 @@ jobs:
           git -C "${VPS_DEPLOY_PATH}" reset --hard FETCH_HEAD
           git -C "${VPS_DEPLOY_PATH}" clean -fd
 
-          docker compose -f "${VPS_DEPLOY_PATH}/docker-compose.yml" \
-            --project-directory "${VPS_DEPLOY_PATH}" \
-            up -d --build --remove-orphans
+          cd "${VPS_DEPLOY_PATH}"
 
-          for _ in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1/healthz >/dev/null 2>&1; then
+          chmod +x scripts/*.sh
+
+          REPO_ROOT="${VPS_DEPLOY_PATH}" \
+          APP_ENV_PATH="${VPS_DEPLOY_PATH}/.env" \
+          DEPLOY_USER="${USER}" \
+          IMAGE_TAG="${IMAGE_TAG}" \
+          bash scripts/bootstrap_cluster.sh
+          EOF
+
+  e2e:
+    name: External End-to-End Smoke
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
+    environment: PROD
+
+    steps:
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Materialize env file
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_APP_ENV_FILE: ${{ secrets.VPS_APP_ENV_FILE }}
+        run: |
+          if printf '%s' "$VPS_APP_ENV_FILE" | grep -q '='; then
+            printf '%s' "$VPS_APP_ENV_FILE" > .runtime.env
+          else
+            ssh "$VPS_USER@$VPS_HOST" "cat '$VPS_APP_ENV_FILE'" > .runtime.env
+          fi
+
+      - name: Wait for external health endpoint
+        run: |
+          for _ in $(seq 1 60); do
+            if curl -fsS "${E2E_BASE_URL}/healthz" >/dev/null 2>&1; then
               exit 0
             fi
-            sleep 2
+            sleep 10
           done
-
-          echo "Application health check failed after deployment." >&2
-          docker compose -f "${VPS_DEPLOY_PATH}/docker-compose.yml" \
-            --project-directory "${VPS_DEPLOY_PATH}" \
-            ps >&2 || true
-          docker compose -f "${VPS_DEPLOY_PATH}/docker-compose.yml" \
-            --project-directory "${VPS_DEPLOY_PATH}" \
-            logs --tail=100 nginx >&2 || true
-          docker compose -f "${VPS_DEPLOY_PATH}/docker-compose.yml" \
-            --project-directory "${VPS_DEPLOY_PATH}" \
-            logs --tail=100 api >&2 || true
+          echo "External health endpoint did not become ready in time." >&2
           exit 1
-          EOF
+
+      - name: Run external E2E smoke
+        run: |
+          eval "$(
+            python - <<'PY'
+            from pathlib import Path
+
+            values = {}
+            for raw_line in Path(".runtime.env").read_text(encoding="utf-8").splitlines():
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                values[key] = value
+
+            for key in ("ADMIN_LOGIN", "ADMIN_PASSWORD"):
+                if key not in values:
+                    raise SystemExit(f"Missing required env var in runtime env: {key}")
+                print(f"export {key}={values[key]!r}")
+            PY
+          )"
+          chmod +x scripts/e2e_remote.sh
+          BASE_URL="${E2E_BASE_URL}" \
+          ADMIN_LOGIN="${ADMIN_LOGIN}" \
+          ADMIN_PASSWORD="${ADMIN_PASSWORD}" \
+          bash scripts/e2e_remote.sh
+
+      - name: Dump cluster diagnostics on failure
+        if: failure()
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh "$VPS_USER@$VPS_HOST" '
+            export KUBECONFIG=/home/'"$VPS_USER"'/.kube/config
+            kubectl get pods -A
+            kubectl -n argocd get application emr-prod -o wide || true
+            kubectl -n emr logs deploy/api --tail=100 || true
+          '

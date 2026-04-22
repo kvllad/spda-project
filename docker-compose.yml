@@ -34,6 +34,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      default:
+        aliases:
+          - emr-api
     restart: unless-stopped
     volumes:
       - app_logs:/var/log/emr
@@ -101,6 +105,10 @@ services:
     depends_on:
       - prometheus
       - loki
+    networks:
+      default:
+        aliases:
+          - emr-grafana
 
 volumes:
   postgres_data:

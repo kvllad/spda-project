@@ -18,4 +18,8 @@ sudo -E certbot renew \
   --logs-dir "$(pwd)/logs/letsencrypt" \
   "$@"
 
-docker compose exec -T nginx nginx -s reload
+if command -v kubectl >/dev/null 2>&1 && kubectl config current-context >/dev/null 2>&1; then
+  REPO_ROOT="$(pwd)" ./scripts/sync_k8s_tls_secret.sh
+elif docker compose ps nginx >/dev/null 2>&1; then
+  docker compose exec -T nginx nginx -s reload
+fi

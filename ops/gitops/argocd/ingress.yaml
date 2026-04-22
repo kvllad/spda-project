@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd
+  namespace: argocd
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - my-emr.duckdns.org
+      secretName: emr-tls
+  rules:
+    - host: my-emr.duckdns.org
+      http:
+        paths:
+          - path: /argocd
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 80
