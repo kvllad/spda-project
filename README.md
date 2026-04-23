@@ -9,6 +9,7 @@ The repository now supports two runtime modes:
 
 ## Public Endpoints
 
+- Frontend: `https://my-emr.duckdns.org/`
 - API docs: `https://my-emr.duckdns.org/docs`
 - ReDoc: `https://my-emr.duckdns.org/redoc`
 - OpenAPI: `https://my-emr.duckdns.org/openapi.json`
@@ -96,9 +97,10 @@ Desired state lives in:
 Pipeline behavior on `main`:
 
 1. run `ruff` and `pytest`
-2. update `ops/k8s/overlays/prod/kustomization.yaml` with `sha-<commit>`
-3. SSH to the VPS, sync `.env`, build the image directly into `minikube`, refresh the local Git mirror consumed by Argo CD, and let Argo CD reconcile
-4. run `scripts/e2e_remote.sh` against the public domain
+2. run frontend build in `spda-frontend`
+3. update `ops/k8s/overlays/prod/kustomization.yaml` with `sha-<commit>` for API and frontend images
+4. SSH to the VPS, sync `.env`, build API and frontend images directly into `minikube`, refresh the local Git mirror consumed by Argo CD, and let Argo CD reconcile
+5. run `scripts/e2e_remote.sh` against the public domain (including frontend homepage check)
 
 Required GitHub environment secrets in `PROD`:
 

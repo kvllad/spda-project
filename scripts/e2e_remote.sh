@@ -63,6 +63,11 @@ health_body="${WORKDIR}/health.json"
 health_status="$(request GET /healthz "" "" "${health_body}")"
 assert_status "${health_status}" "200" "${health_body}"
 
+frontend_body="${WORKDIR}/frontend.html"
+frontend_status="$(request GET / "" "" "${frontend_body}")"
+assert_status "${frontend_status}" "200" "${frontend_body}"
+grep -qi "<!doctype html" "${frontend_body}"
+
 docs_body="${WORKDIR}/docs.html"
 docs_status="$(request GET /docs "" "" "${docs_body}")"
 assert_status "${docs_status}" "200" "${docs_body}"

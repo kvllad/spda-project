@@ -8,9 +8,15 @@ IMAGE_TAG="${IMAGE_TAG:?IMAGE_TAG is required}"
 DEPLOY_USER="${DEPLOY_USER:-${USER}}"
 GITOPS_MIRROR_ROOT="${GITOPS_MIRROR_ROOT:-/home/${DEPLOY_USER}/gitops}"
 GITOPS_MIRROR_PATH="${GITOPS_MIRROR_PATH:-${GITOPS_MIRROR_ROOT}/spda-project.git}"
+FRONTEND_PATH="${REPO_ROOT}/spda-frontend"
 
 if [[ ! -f "${APP_ENV_PATH}" ]]; then
   echo "Application env file not found: ${APP_ENV_PATH}" >&2
+  exit 1
+fi
+
+if [[ ! -f "${FRONTEND_PATH}/package.json" ]]; then
+  echo "Frontend sources are missing at ${FRONTEND_PATH}. Ensure git submodules are initialized." >&2
   exit 1
 fi
 
@@ -27,6 +33,7 @@ kubectl -n emr create secret generic emr-runtime \
   -o yaml | kubectl apply -f -
 
 minikube image build -p "${MINIKUBE_PROFILE}" -t "emr-service-api:${IMAGE_TAG}" "${REPO_ROOT}"
+minikube image build -p "${MINIKUBE_PROFILE}" -t "emr-service-frontend:${IMAGE_TAG}" "${FRONTEND_PATH}"
 
 mkdir -p "${GITOPS_MIRROR_ROOT}"
 if [[ ! -d "${GITOPS_MIRROR_PATH}" ]]; then

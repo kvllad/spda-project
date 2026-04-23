@@ -8,3 +8,6 @@ images:
   - name: emr-service-api
     newName: emr-service-api
     newTag: sha-accd2cb1d7eac8a0ad8890ecf8046212695216d5
+  - name: emr-service-frontend
+    newName: emr-service-frontend
+    newTag: sha-accd2cb1d7eac8a0ad8890ecf8046212695216d5

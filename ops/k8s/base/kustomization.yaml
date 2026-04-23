@@ -6,6 +6,7 @@ resources:
   - namespace.yaml
   - postgres.yaml
   - api.yaml
+  - frontend.yaml
   - loki.yaml
   - prometheus.yaml
   - grafana.yaml

@@ -42,10 +42,20 @@ services:
     volumes:
       - app_logs:/var/log/emr
 
+  frontend:
+    build:
+      context: ./spda-frontend
+    restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - emr-frontend
+
   nginx:
     image: nginx:1.27-alpine
     depends_on:
       - api
+      - frontend
     ports:
       - "80:80"
       - "443:443"
