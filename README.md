@@ -16,6 +16,15 @@ The repository now supports two runtime modes:
 - Grafana: `https://my-emr.duckdns.org/grafana/`
 - Argo CD: `https://my-emr.duckdns.org/argocd/`
 
+## Production Access
+
+- API admin login: `admin`
+- API admin password: `EfL/axcFq0Pb1I643MXtugej`
+- Grafana login: `admin`
+- Grafana password: `3hRW1LXS1G1WZmr8OG3gydNp`
+- Argo CD login: `admin`
+- Argo CD password: `jYs7EcTd6NebGZqB`
+
 ## Local Development
 
 ```bash
