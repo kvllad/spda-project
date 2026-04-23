@@ -1,0 +1,3 @@
+[submodule "spda-frontend"]
+	path = spda-frontend
+	url = https://github.com/poeticlama/spda-frontend.git
