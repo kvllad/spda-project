@@ -53,7 +53,7 @@ jobs:
       - name: Build frontend
         run: |
           cd spda-frontend
-          npm ci
+          npm install --no-audit --no-fund
           npm run build
 
   update-gitops:
