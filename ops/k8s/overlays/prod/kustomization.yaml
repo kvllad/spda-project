@@ -7,7 +7,7 @@ resources:
 images:
   - name: emr-service-api
     newName: emr-service-api
-    newTag: sha-561a2e6b4e5da19f0c4ce637784e49cee930e0c8
+    newTag: sha-b1b9afb5c86263d0d3aa0668867053b3c2d4132f
   - name: emr-service-frontend
     newName: emr-service-frontend
-    newTag: sha-bootstrap
+    newTag: sha-b1b9afb5c86263d0d3aa0668867053b3c2d4132f
